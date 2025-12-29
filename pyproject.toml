@@ -45,6 +45,11 @@ ai = [
     "transformers>=4.30.0",
 ]
 
+web = [
+    # Gradio for Web UI
+    "gradio>=4.0.0",
+]
+
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -52,7 +57,7 @@ dev = [
 ]
 
 all = [
-    "mededucation[ai,dev]",
+    "mededucation[ai,web,dev]",
 ]
 
 [project.scripts]

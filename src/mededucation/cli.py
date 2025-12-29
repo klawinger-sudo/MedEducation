@@ -451,5 +451,48 @@ def test(
         console.print("  ollama pull qwen3:14b")
 
 
+@app.command()
+def web(
+    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Host to bind to"),
+    port: int = typer.Option(7860, "--port", "-p", help="Port to listen on"),
+    share: bool = typer.Option(False, "--share", help="Create a public Gradio link"),
+    profile: Optional[str] = typer.Option(None, "--profile", help="Default user profile"),
+):
+    """Launch the web UI."""
+    try:
+        from mededucation.web import launch
+    except ImportError:
+        console.print("[red]Error:[/red] Gradio is not installed.")
+        console.print("Install it with: pip install mededucation[web]")
+        raise typer.Exit(1)
+
+    project_root = get_project_root()
+    vectordb_path = project_root / "data" / "vectordb"
+    config_path = project_root / "config" / "sources.yaml"
+
+    console.print(f"\n[bold]Starting MedEducation Web UI[/bold]")
+    console.print(f"  URL: http://{host if host != '0.0.0.0' else 'localhost'}:{port}")
+    console.print(f"  Vector DB: {vectordb_path}")
+    if profile:
+        console.print(f"  Profile: {profile}")
+    console.print()
+
+    from mededucation.web.app import MedEducationUI
+    import gradio as gr
+
+    ui = MedEducationUI(
+        vectordb_path=str(vectordb_path),
+        config_path=str(config_path),
+        default_profile=profile or "flight_critical_care",
+    )
+
+    app_ui = ui.build_ui()
+    app_ui.launch(
+        server_name=host,
+        server_port=port,
+        share=share,
+    )
+
+
 if __name__ == "__main__":
     app()

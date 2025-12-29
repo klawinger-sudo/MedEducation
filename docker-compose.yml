@@ -1,0 +1,64 @@
+# MedEducation Docker Compose
+#
+# Usage:
+#   docker-compose up -d              # Start web UI
+#   docker-compose run --rm cli       # Run CLI commands
+#   docker-compose logs -f web        # View logs
+#
+# For Unraid: Import this as a Docker Compose stack
+
+services:
+  # Web UI - Main service
+  web:
+    build: .
+    image: mededucation:latest
+    container_name: mededucation-web
+    ports:
+      - "7860:7860"
+    volumes:
+      # Persist data
+      - ./data/textbooks:/app/data/textbooks
+      - ./data/vectordb:/app/data/vectordb
+      - ./data/extracted:/app/data/extracted
+      - ./config:/app/config
+    environment:
+      # Point to your Ollama instance
+      # For Unraid: use your server IP
+      # For local: use host.docker.internal (Docker Desktop) or 172.17.0.1 (Linux)
+      - LOCAL_LLM_BASE_URL=${LOCAL_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-qwen3:14b}
+      - TOKENIZERS_PARALLELISM=false
+    restart: unless-stopped
+    # Allow access to host network for Ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # CLI - For running commands
+  cli:
+    build: .
+    image: mededucation:latest
+    volumes:
+      - ./data/textbooks:/app/data/textbooks
+      - ./data/vectordb:/app/data/vectordb
+      - ./data/extracted:/app/data/extracted
+      - ./config:/app/config
+    environment:
+      - LOCAL_LLM_BASE_URL=${LOCAL_LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LOCAL_LLM_MODEL=${LOCAL_LLM_MODEL:-qwen3:14b}
+      - TOKENIZERS_PARALLELISM=false
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: ["mededucation"]
+    # Override command as needed:
+    # docker-compose run --rm cli ingest /app/data/textbooks/book.pdf -s BOOK_ID -n "Book"
+    # docker-compose run --rm cli index -s BOOK_ID
+    # docker-compose run --rm cli sources
+    command: ["--help"]
+    profiles:
+      - cli
+
+# Volume definitions for named volumes (alternative to bind mounts)
+# volumes:
+#   textbooks:
+#   vectordb:
+#   extracted:
