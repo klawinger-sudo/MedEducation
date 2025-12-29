@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mededucation"
+version = "0.1.0"
+description = "Medical Education RAG Assistant - Query medical textbooks with citations"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "MedEducation"}
+]
+
+dependencies = [
+    # PDF/Document Processing
+    "pymupdf>=1.24.0",
+    "ebooklib>=0.18",
+    "beautifulsoup4>=4.12.0",
+    "pandas>=2.0.0",
+    "tabulate>=0.9.0",
+
+    # Data Validation
+    "pydantic>=2.5.0",
+
+    # CLI
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+
+    # Config
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+ai = [
+    # Vector DB & Embeddings
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+
+    # LLM Client
+    "openai>=1.12.0",
+
+    # Better tokenization (optional, falls back to heuristic)
+    "transformers>=4.30.0",
+]
+
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+
+all = [
+    "mededucation[ai,dev]",
+]
+
+[project.scripts]
+mededucation = "mededucation.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -1,0 +1,40 @@
+# MedEducation Source Configuration
+#
+# Define your medical textbooks here. Each source needs:
+# - id: Unique identifier (used in CLI and storage)
+# - title: Full title of the textbook
+# - short_name: Short name for citations (e.g., "EMTB", "Paramedic")
+# - path: Path to the PDF/EPUB file (relative to project root or absolute)
+# - apa_reference: Full APA citation for the source
+
+sources:
+  # Example source configuration:
+  # - id: EMTB_BOOK
+  #   title: "Emergency Care and Transportation of the Sick and Injured"
+  #   short_name: "EMTB"
+  #   path: "data/textbooks/EMT-B.pdf"
+  #   apa_reference: "American Academy of Orthopaedic Surgeons. (2021). Emergency care and transportation of the sick and injured (12th ed.). Jones & Bartlett Learning."
+
+  # - id: PARAMEDIC_BOOK
+  #   title: "Nancy Caroline's Emergency Care in the Streets"
+  #   short_name: "NCECS"
+  #   path: "data/textbooks/Paramedic.pdf"
+  #   apa_reference: "Caroline, N. L. (2021). Nancy Caroline's emergency care in the streets (9th ed.). Jones & Bartlett Learning."
+
+# Settings for the RAG system
+settings:
+  # Number of chunks to retrieve per query
+  top_k: 8
+
+  # Minimum relevance score (0-1) for chunks
+  min_relevance: 0.3
+
+  # Embedding model (must match what's used in vector store)
+  embedding_model: "all-MiniLM-L6-v2"
+
+  # Default LLM settings (can be overridden via env vars)
+  llm:
+    base_url: "http://localhost:11434/v1"
+    model: "qwen3:14b"
+    max_tokens: 4096
+    temperature: 0.7
