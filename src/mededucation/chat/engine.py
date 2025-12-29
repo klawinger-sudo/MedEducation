@@ -4,7 +4,7 @@ This module provides the core query functionality:
 1. Takes a user question
 2. Retrieves relevant chunks from the vector store
 3. Formats context with citations
-4. Sends to LLM with medical education system prompt
+4. Sends to LLM with personalized system prompt
 5. Returns answer with proper citations
 """
 
@@ -19,26 +19,7 @@ import yaml
 from mededucation.models.content import ChunkResult
 from mededucation.storage.vector_store import VectorStore
 from mededucation.llm.client import LocalLLMClient
-
-
-# System prompt for medical education assistant
-SYSTEM_PROMPT = """You are a medical education assistant with access to medical textbooks. Your role is to help students and healthcare professionals learn and understand medical concepts.
-
-IMPORTANT GUIDELINES:
-1. Base your answers ONLY on the provided textbook excerpts. Do not use external knowledge.
-2. Always cite your sources using the format (Source, p. X) or (Source, pp. X-Y) at the end of relevant statements.
-3. If the provided context doesn't contain enough information to answer the question, clearly state that.
-4. Explain concepts clearly and at an appropriate educational level.
-5. When discussing medical procedures or treatments, emphasize that this is for educational purposes only.
-6. If asked about clinical decisions, remind the user to consult appropriate clinical guidelines and supervisors.
-
-RESPONSE FORMAT:
-- Provide a clear, well-structured answer
-- Include relevant citations inline
-- If multiple sources support a point, cite them all
-- End with a "Sources" section listing the full citations used
-
-Remember: You are an educational resource, not a replacement for proper medical training, clinical guidelines, or professional medical advice."""
+from mededucation.prompts.system import get_system_prompt, get_context_prompt, PROFILES, DEFAULT_PROFILE
 
 
 @dataclass
@@ -57,9 +38,10 @@ class ChatEngine:
     Example:
         >>> engine = ChatEngine(
         ...     vectordb_path="./data/vectordb",
-        ...     config_path="./config/sources.yaml"
+        ...     config_path="./config/sources.yaml",
+        ...     profile="flight_critical_care"
         ... )
-        >>> response = engine.query("What are the signs of shock?")
+        >>> response = engine.query("What are the signs of cardiogenic shock?")
         >>> print(response.answer)
     """
 
@@ -69,8 +51,10 @@ class ChatEngine:
         config_path: Optional[str] = None,
         llm_base_url: Optional[str] = None,
         llm_model: Optional[str] = None,
-        top_k: int = 8,
-        min_relevance: float = 0.3,
+        top_k: int = 12,
+        min_relevance: float = 0.25,
+        profile: str = DEFAULT_PROFILE,
+        custom_instructions: Optional[str] = None,
     ):
         """Initialize the chat engine.
 
@@ -79,12 +63,19 @@ class ChatEngine:
             config_path: Path to sources.yaml config file.
             llm_base_url: Override LLM base URL.
             llm_model: Override LLM model name.
-            top_k: Number of chunks to retrieve.
+            top_k: Number of chunks to retrieve (default 12 for detailed responses).
             min_relevance: Minimum relevance score for chunks.
+            profile: User profile for personalized prompts.
+            custom_instructions: Additional instructions to append to system prompt.
         """
         self.vectordb_path = Path(vectordb_path)
         self.top_k = top_k
         self.min_relevance = min_relevance
+        self.profile = profile
+        self.custom_instructions = custom_instructions
+
+        # Get personalized system prompt
+        self._system_prompt = get_system_prompt(profile, custom_instructions)
 
         # Load config if provided
         self.config = {}
@@ -103,6 +94,11 @@ class ChatEngine:
             self.top_k = settings.get("top_k", top_k)
             self.min_relevance = settings.get("min_relevance", min_relevance)
 
+            # Profile from config
+            if "profile" in settings and not profile:
+                self.profile = settings["profile"]
+                self._system_prompt = get_system_prompt(self.profile, custom_instructions)
+
         # Initialize vector store
         self._vector_store: Optional[VectorStore] = None
 
@@ -111,7 +107,7 @@ class ChatEngine:
         self._llm = LocalLLMClient(
             base_url=llm_base_url or llm_config.get("base_url"),
             model=llm_model or llm_config.get("model"),
-            max_tokens=llm_config.get("max_tokens", 4096),
+            max_tokens=llm_config.get("max_tokens", 8192),  # Larger for detailed responses
             temperature=llm_config.get("temperature", 0.7),
         )
 
@@ -123,6 +119,25 @@ class ChatEngine:
                 collection_name="mededucation_content",
             )
         return self._vector_store
+
+    def set_profile(self, profile: str, custom_instructions: Optional[str] = None) -> None:
+        """Change the user profile.
+
+        Args:
+            profile: Profile key from PROFILES.
+            custom_instructions: Additional instructions.
+        """
+        if profile in PROFILES:
+            self.profile = profile
+            self._system_prompt = get_system_prompt(profile, custom_instructions)
+
+    def get_available_profiles(self) -> dict:
+        """Get available user profiles.
+
+        Returns:
+            Dictionary of profile info.
+        """
+        return {k: {"name": v["name"], "description": v["description"]} for k, v in PROFILES.items()}
 
     def query(
         self,
@@ -162,11 +177,11 @@ class ChatEngine:
         # Format context with citations
         context = self._format_context(chunks)
 
-        # Build the prompt
-        prompt = self._build_prompt(question, context)
+        # Build the prompt using the prompts module
+        prompt = get_context_prompt(question, context)
 
-        # Generate response
-        answer = self._llm.generate(prompt=prompt, system_prompt=SYSTEM_PROMPT)
+        # Generate response with personalized system prompt
+        answer = self._llm.generate(prompt=prompt, system_prompt=self._system_prompt)
 
         # Format sources section
         sources_formatted = self._format_sources(chunks)
@@ -201,17 +216,6 @@ class ChatEngine:
             context_parts.append(f"{header}\n{chunk.text}\n")
 
         return "\n---\n".join(context_parts)
-
-    def _build_prompt(self, question: str, context: str) -> str:
-        """Build the full prompt for the LLM."""
-        return f"""Based on the following excerpts from medical textbooks, please answer the question.
-
-TEXTBOOK EXCERPTS:
-{context}
-
-QUESTION: {question}
-
-Please provide a comprehensive answer based on the excerpts above, with proper citations."""
 
     def _format_sources(self, chunks: List[ChunkResult]) -> str:
         """Format a sources section for the response."""

@@ -228,10 +228,28 @@ def sources(
 
 
 @app.command()
+def profiles():
+    """List available user profiles."""
+    from mededucation.prompts.system import PROFILES
+
+    table = Table(title="Available Profiles")
+    table.add_column("Profile ID", style="cyan")
+    table.add_column("Name", style="green")
+    table.add_column("Description")
+
+    for key, info in PROFILES.items():
+        table.add_row(key, info["name"], info["description"])
+
+    console.print(table)
+    console.print("\n[dim]Set profile in config/sources.yaml or use --profile flag[/dim]")
+
+
+@app.command()
 def query(
     question: str = typer.Argument(..., help="Question to ask"),
     source_id: Optional[str] = typer.Option(None, "--source", "-s", help="Filter to specific source"),
-    top_k: int = typer.Option(8, "--top-k", "-k", help="Number of chunks to retrieve"),
+    top_k: int = typer.Option(12, "--top-k", "-k", help="Number of chunks to retrieve"),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="User profile (flight_critical_care, medical_student, etc.)"),
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
     vectordb_path: Optional[str] = typer.Option(None, "--vectordb", help="Path to vector database"),
     show_sources: bool = typer.Option(True, "--sources/--no-sources", help="Show source citations"),
@@ -270,6 +288,7 @@ def query(
             vectordb_path=str(vdb_path),
             config_path=str(cfg_path) if cfg_path else None,
             top_k=top_k,
+            profile=profile or "flight_critical_care",
         )
 
         progress.update(task, description="Generating answer...")
@@ -287,7 +306,8 @@ def query(
 @app.command()
 def chat(
     source_id: Optional[str] = typer.Option(None, "--source", "-s", help="Filter to specific source"),
-    top_k: int = typer.Option(8, "--top-k", "-k", help="Number of chunks to retrieve"),
+    top_k: int = typer.Option(12, "--top-k", "-k", help="Number of chunks to retrieve"),
+    profile: Optional[str] = typer.Option(None, "--profile", "-p", help="User profile (flight_critical_care, medical_student, etc.)"),
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
     vectordb_path: Optional[str] = typer.Option(None, "--vectordb", help="Path to vector database"),
 ):
@@ -314,19 +334,28 @@ def chat(
         console.print("Run 'mededucation ingest' and 'mededucation index' first.")
         raise typer.Exit(1)
 
+    active_profile = profile or "flight_critical_care"
+
     engine = ChatEngine(
         vectordb_path=str(vdb_path),
         config_path=str(cfg_path) if cfg_path else None,
         top_k=top_k,
+        profile=active_profile,
     )
+
+    # Get profile name for display
+    from mededucation.prompts.system import PROFILES
+    profile_name = PROFILES.get(active_profile, {}).get("name", active_profile)
 
     # Show welcome message
     console.print()
     console.print(Panel(
-        "[bold]MedEducation Chat[/bold]\n\n"
+        f"[bold]MedEducation Chat[/bold]\n"
+        f"[dim]Profile: {profile_name}[/dim]\n\n"
         "Ask questions about your medical textbooks.\n"
         "Type 'exit' or 'quit' to end the session.\n"
-        "Type 'sources' to see indexed sources.",
+        "Type 'sources' to see indexed sources.\n"
+        "Type 'profile' to see current profile.",
         border_style="blue",
     ))
 
@@ -355,6 +384,12 @@ def chat(
                     console.print(f"  • {src['source_id']}: {src['chunk_count']} chunks")
             else:
                 console.print("[yellow]No sources indexed.[/yellow]")
+            continue
+
+        if question.lower() == "profile":
+            console.print(f"[bold]Current Profile:[/bold] {profile_name}")
+            console.print(f"[dim]Profile ID: {active_profile}[/dim]")
+            console.print("\n[dim]Features: Detailed explanations, differentials, drug dosages, clinical pearls, mnemonics[/dim]")
             continue
 
         # Query

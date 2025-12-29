@@ -3,38 +3,49 @@
 # Define your medical textbooks here. Each source needs:
 # - id: Unique identifier (used in CLI and storage)
 # - title: Full title of the textbook
-# - short_name: Short name for citations (e.g., "EMTB", "Paramedic")
+# - short_name: Short name for citations (e.g., "CCT", "NCECS")
 # - path: Path to the PDF/EPUB file (relative to project root or absolute)
 # - apa_reference: Full APA citation for the source
 
 sources:
-  # Example source configuration:
-  # - id: EMTB_BOOK
-  #   title: "Emergency Care and Transportation of the Sick and Injured"
-  #   short_name: "EMTB"
-  #   path: "data/textbooks/EMT-B.pdf"
-  #   apa_reference: "American Academy of Orthopaedic Surgeons. (2021). Emergency care and transportation of the sick and injured (12th ed.). Jones & Bartlett Learning."
+  # Example sources - uncomment and modify for your textbooks:
 
-  # - id: PARAMEDIC_BOOK
+  # - id: CCT_BOOK
+  #   title: "Critical Care Transport"
+  #   short_name: "CCT"
+  #   path: "data/textbooks/CriticalCareTransport.pdf"
+  #   apa_reference: "Air & Surface Transport Nurses Association. (2022). Critical care transport (3rd ed.). Jones & Bartlett Learning."
+
+  # - id: NCECS_BOOK
   #   title: "Nancy Caroline's Emergency Care in the Streets"
   #   short_name: "NCECS"
-  #   path: "data/textbooks/Paramedic.pdf"
+  #   path: "data/textbooks/NancyCaroline.pdf"
   #   apa_reference: "Caroline, N. L. (2021). Nancy Caroline's emergency care in the streets (9th ed.). Jones & Bartlett Learning."
+
+  # - id: ACLS_BOOK
+  #   title: "ACLS Provider Manual"
+  #   short_name: "ACLS"
+  #   path: "data/textbooks/ACLS.pdf"
+  #   apa_reference: "American Heart Association. (2020). Advanced cardiovascular life support provider manual. AHA."
 
 # Settings for the RAG system
 settings:
-  # Number of chunks to retrieve per query
-  top_k: 8
+  # User profile - determines response style and depth
+  # Options: flight_critical_care, medical_student, nursing_student, ems_provider
+  profile: flight_critical_care
 
-  # Minimum relevance score (0-1) for chunks
-  min_relevance: 0.3
+  # Number of chunks to retrieve per query (more = more context but slower)
+  top_k: 12
+
+  # Minimum relevance score (0-1) for chunks (lower = more results)
+  min_relevance: 0.25
 
   # Embedding model (must match what's used in vector store)
   embedding_model: "all-MiniLM-L6-v2"
 
-  # Default LLM settings (can be overridden via env vars)
+  # LLM settings
   llm:
     base_url: "http://localhost:11434/v1"
     model: "qwen3:14b"
-    max_tokens: 4096
+    max_tokens: 8192
     temperature: 0.7
